@@ -1,5 +1,7 @@
 # Molecular feature extraction
 
+Programmed by Ehsan Moharreri / email: e h s an dot m o h a r re r i Gmail
+
 
 This program extracts various geometrical features of molecular structures and and stores them in csv data format 
 
