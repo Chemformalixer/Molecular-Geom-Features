@@ -9,3 +9,8 @@ This program extracts various geometrical features of molecular structures and a
 https://www.r-project.org/
 
 2-
+
+
+3- This program gets various input types including gaussian input coordinates, pdb or cif format.
+
+
