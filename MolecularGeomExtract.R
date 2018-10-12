@@ -1,10 +1,10 @@
 #################################################################################################################
 ###                                                                                                           ###
 ###                                                                                                           ###
-###   Making feature based on gaussian input file coordinate                                                  ###
-###   1- aggregate percentile based features                                                                  ###
-###   2- column matriz eigen values                                                                           ###
-###   3- electron density surrogate eigen values                                                              ###
+###   Feature extraction from gaussian input file                                                             ###
+###   1- Aggregate percentile-based features                                                                  ###
+###   2- Coulomb matrix eigen values                                                                          ###
+###   3- Electron density surrogate eigen values                                                              ###
 ###                                                                                                           ###
 ###                                                                                                           ###
 #################################################################################################################
