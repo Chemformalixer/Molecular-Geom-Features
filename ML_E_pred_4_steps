@@ -1,0 +1,358 @@
+## Energy prediction based on geometry dependency features using CCCBDBD data
+## Written by Ehsan Moharreri and Maryam Pardakhti 
+#The representative code is to demonstrate the 4 step ML modeling procedure
+# Data and model here is based on optimized structures only
+
+closeAllConnections()
+rm(list = ls())
+
+################################################################################
+## setting working directory
+setwd("./Molecular-Geom-Features")
+dir = "./Molecular-Geom-Features"
+################################################################################
+## Library
+library(caret)
+library(tree)
+library(randomForest)
+library(rpart)
+################################################################################
+################################################################################
+################################################################################
+###############################                   ##############################
+##########################                            ##########################
+##################                  STEP 1                     #################
+##########################                            ##########################
+###############################                   ##############################
+################################################################################
+################################################################################                                  
+
+# reading dataset
+D1_B1B95321G <- read.csv ('out_B1B95321G_group1_random_ev.csv', header=T)
+
+################################################################################
+## data with 13 selected RF features of aggregate variables
+D1_B1B95321G_agg_select <- D1_B1B95321G[ , which(names(D1_B1B95321G) %in% c("N.electron",
+                                                  "M.protonsarray.q0",
+                                                  "M.protonsarray.q2",
+                                                  "M.protonsarray.q4",
+                                                  "M.protonsarray.q5",
+                                                  "M.protonsarray.q7",
+                                                  "M.protonsarray.q1",
+                                                  "M.protonsarray.q8",
+                                                  "M.protonsarray.q9",
+                                                  "M.protonsarray.q10",
+                                                  "ElecDenSurMxq7",
+                                                  "ElecDenSurMxq5",
+                                                  "CentroidW.average.dist.from.atoms.q1",
+                                                  "Nuclei.Distance.Proton.Weighted.Q0",
+                                                  "Energy"))]
+
+D1_B1B95321G_agg_select$Energy <- -1*(D1_B1B95321G_agg_select$Energy)
+
+k_folds_step1 <- cut(seq(1,nrow(D1_B1B95321G_agg_select)),breaks=10,labels=FALSE)
+
+respsfinal_res_opt_1 <- NULL
+
+#Perform 10 fold cross validation
+for(i in 1:10){
+  #Segement your data by fold using the which() function 
+  testIndexes_step1 <- which(k_folds_step1==i,arr.ind=TRUE)
+  data_Test_step1 <- D1_B1B95321G_agg_select[testIndexes_step1, ]
+  data_Train_step1 <- D1_B1B95321G_agg_select[-testIndexes_step1, ]
+  
+  svmB1B95321G <- svm(Energy ~ ., data=data_Train_step1, kernel = "linear" ,tolerance = 0.001)
+  
+  resp_svm_test_cross <- predict(svmB1B95321G, data_Test_step1)
+  
+
+  respsfinal_res_temp <- data.frame(data_Test_step1$Energy,resp_svm_test_cross)
+  
+  respsfinal_res_opt_1 <- rbind(respsfinal_res_opt_1,respsfinal_res_temp)
+  
+}
+
+plot(respsfinal_res_opt_1$data_Test_step1.Energy,respsfinal_res_opt_1$resp_svm_test_cross)
+
+tempfitcropped <-lm(respsfinal_res_opt_1$data_Test_step1.Energy ~ respsfinal_res_opt_1$resp_svm_test_cross)
+legend("topleft", paste("R2=", format(summary(tempfitcropped)$adj.r.squared), bty="n"))
+abline(c(0,1),col=c("red"), lwd=2)
+
+MAPE1_cross <- abs((respsfinal_res_opt_1$data_Test_step1.Energy-respsfinal_res_opt_1$resp_svm_test_cross)/respsfinal_res_opt_1$data_Test_step1.Energy)
+MAPE1_cross <- 100*MAPE1_cross
+MAPE1_cross <- data.frame(MAPE1_cross)
+MAPE1_cross<- mean(MAPE1_cross$MAPE1_cross)
+MAPE1_cross
+
+##############
+svmB1B95321G <- svm(Energy ~ ., data=D1_B1B95321G_agg_select, kernel = "linear" ,tolerance = 0.001)
+
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+###############################                   ##############################
+##########################                            ##########################
+##################                  STEP 2                     #################
+##########################                            ##########################
+###############################                   ##############################
+################################################################################
+################################################################################
+
+# reading dataset
+D2_B3LYP631G <- read.csv("out_B3LYP631G_group2_random_ev.csv", header=T)
+
+################################################################################
+## data with 13 selected RF features of aggregate variables
+D2_B3LYP631G_agg_select <- D2_B3LYP631G[ , which(names(D2_B3LYP631G) %in% c("N.electron",
+                                                   "M.protonsarray.q0",
+                                                   "M.protonsarray.q2",
+                                                   "M.protonsarray.q4",
+                                                   "M.protonsarray.q5",
+                                                   "M.protonsarray.q7",
+                                                   "M.protonsarray.q1",
+                                                   "M.protonsarray.q8",
+                                                   "M.protonsarray.q9",
+                                                   "M.protonsarray.q10",
+                                                   "ElecDenSurMxq7",
+                                                   "ElecDenSurMxq5",
+                                                   "CentroidW.average.dist.from.atoms.q1",
+                                                   "Nuclei.Distance.Proton.Weighted.Q0",
+                                                   "Energy"))]
+
+################################################################################
+#### MISSING VALUES
+#For NA energies the entry needs to be deleted
+D2_B3LYP631G_agg_select<-D2_B3LYP631G_agg_select[!is.na(D2_B3LYP631G_agg_select$Energy),]
+
+#adding predicted energy using step 1 model to add another predictor
+resp_datab1 <- predict(svmB1B95321G, newdata = D2_B3LYP631G_agg_select)
+D2_B3LYP631G_agg_select$eB1B95321G <- resp_datab1
+
+
+D2_B3LYP631G_agg_select$Energy <- -1*(D2_B3LYP631G_agg_select$Energy)
+
+k_folds_step2 <- cut(seq(1,nrow(D2_B3LYP631G_agg_select)),breaks=10,labels=FALSE)
+
+respsfinal_res_opt_2 <- NULL
+
+for(i in 1:10){
+  #Segement your data by fold using the which() function 
+  testIndexes_step2 <- which(k_folds_step2==i,arr.ind=TRUE)
+  data_Test_step2 <- D2_B3LYP631G_agg_select[testIndexes_step2, ]
+  data_Train_step2 <- D2_B3LYP631G_agg_select[-testIndexes_step2, ]
+  
+  Random_Forest_B3LYP_631pss <- randomForest(Energy ~ ., data=data_Train_step2, ntree=300, keep.forest=TRUE,importance=TRUE)
+  resp_forrest_test_B3LYP_631pss <- predict(Random_Forest_B3LYP_631pss, data_Test_step2, type="response",norm.votes=TRUE, predict.all=FALSE, proximity=FALSE, nodes=FALSE)
+  
+  respsfinal_res_temp <- data.frame(data_Test_step2$Energy,resp_forrest_test_B3LYP_631pss)
+  
+  respsfinal_res_opt_2 <- rbind(respsfinal_res_opt_2,respsfinal_res_temp)
+  
+}
+
+
+plot(respsfinal_res_opt_2$data_Test_step2.Energy,respsfinal_res_opt_2$resp_forrest_test_B3LYP_631pss)
+
+
+
+tempfitcropped <-lm(respsfinal_res_opt_2$data_Test_step2.Energy ~ respsfinal_res_opt_2$resp_forrest_test_B3LYP_631pss)
+legend("topleft", paste("R2=", format(summary(tempfitcropped)$adj.r.squared), bty="n"))
+abline(c(0,1),col=c("red"), lwd=2)
+
+
+MAPE2_cross <- abs((respsfinal_res_opt_2$data_Test_step2.Energy-respsfinal_res_opt_2$resp_forrest_test_B3LYP_631pss)/respsfinal_res_opt_2$data_Test_step2.Energy)
+MAPE2_cross <- 100*MAPE2_cross
+MAPE2_cross <- data.frame(MAPE2_cross)
+MAPE2_cross<- mean(MAPE2_cross$MAPE2_cross)
+MAPE2_cross
+
+
+Random_Forest_B3LYP_631pss <- randomForest(Energy ~ ., data=D2_B3LYP631G_agg_select, ntree=300, keep.forest=TRUE,importance=TRUE)
+
+
+################################################################################
+################################################################################
+################################################################################
+###############################                   ##############################
+##########################                            ##########################
+##################                  STEP 3                     #################
+##########################                            ##########################
+###############################                   ##############################
+################################################################################
+################################################################################
+
+# reading dataset         
+D3_wB97XDTZVP <- read.csv("out_wB97XDTZVP_group3_random_ev.csv", header=T)
+
+################################################################################
+## data with 13 selected RF features of aggregate variables
+D3_wB97XDTZVP_agg_select <- D3_wB97XDTZVP[ , which(names(D3_wB97XDTZVP) %in% c("N.electron",
+                                                   "M.protonsarray.q0",
+                                                   "M.protonsarray.q2",
+                                                   "M.protonsarray.q4",
+                                                   "M.protonsarray.q5",
+                                                   "M.protonsarray.q7",
+                                                   "M.protonsarray.q1",
+                                                   "M.protonsarray.q8",
+                                                   "M.protonsarray.q9",
+                                                   "M.protonsarray.q10",
+                                                   "ElecDenSurMxq7",
+                                                   "ElecDenSurMxq5",
+                                                   "CentroidW.average.dist.from.atoms.q1",
+                                                   "Nuclei.Distance.Proton.Weighted.Q0",
+                                                   "Energy"))]
+
+################################################################################
+#### MISSING VALUES
+## For NA energies the entry needs to be deleted
+D3_wB97XDTZVP_agg_select<-D3_wB97XDTZVP_agg_select[!is.na(D3_wB97XDTZVP_agg_select$Energy),]
+
+
+# energy per number of electrons
+D3_wB97XDTZVP_agg_select$Energy <- -1*(D3_wB97XDTZVP_agg_select$Energy)
+
+
+#adding predicted energy using step 1 model to add another predictor
+resp_datac1 <- predict(svmB1B95321G, newdata = D3_wB97XDTZVP_agg_select)
+D3_wB97XDTZVP_agg_select$eB1B95321G <- resp_datac1
+
+#adding predicted energy using step 2 model to add another predictor
+resp_datac1_rfB3LYP_631pss <- predict(Random_Forest_B3LYP_631pss, newdata =D3_wB97XDTZVP_agg_select)
+D3_wB97XDTZVP_agg_select$eB3LYP_631pss <- resp_datac1_rfB3LYP_631pss
+
+folds_step3 <- cut(seq(1,nrow(D3_wB97XDTZVP_agg_select)),breaks=10,labels=FALSE)
+
+respsfinal_res_opt_3 <- NULL
+
+for(i in 1:10){
+  #Segement your data by fold using the which() function 
+  testIndexes_step3 <- which(folds_step3==i,arr.ind=TRUE)
+  data_Test_step3 <- D3_wB97XDTZVP_agg_select[testIndexes_step3, ]
+  data_Train_step3 <- D3_wB97XDTZVP_agg_select[-testIndexes_step3, ]
+  
+  Random_Forest_wB97XDTZVP <- randomForest(Energy ~ ., data=data_Train_step3, ntree=300, keep.forest=TRUE,importance=TRUE)
+  resp_forrest_test_wB97XDTZVP <- predict(Random_Forest_wB97XDTZVP, data_Test_step3, type="response",norm.votes=TRUE, predict.all=FALSE, proximity=FALSE, nodes=FALSE)
+
+  
+    
+  respsfinal_res_temp <- data.frame(data_Test_step3$Energy,resp_forrest_test_wB97XDTZVP)
+  
+  respsfinal_res_opt_3 <- rbind(respsfinal_res_opt_3,respsfinal_res_temp)
+  
+}
+
+
+
+plot(respsfinal_res_opt_3$data_Test_step3.Energy,respsfinal_res_opt_3$resp_forrest_test_wB97XDTZVP)
+
+
+
+tempfitcropped <-lm(respsfinal_res_opt_3$data_Test_step3.Energy ~ respsfinal_res_opt_3$resp_forrest_test_wB97XDTZVP)
+legend("topleft", paste("R2=", format(summary(tempfitcropped)$adj.r.squared), bty="n"))
+abline(c(0,1),col=c("red"), lwd=2)
+
+MAPE3_cross <- abs((respsfinal_res_opt_3$data_Test_step3.Energy-respsfinal_res_opt_3$resp_forrest_test_wB97XDTZVP)/respsfinal_res_opt_3$data_Test_step3.Energy)
+MAPE3_cross <- 100*MAPE3_cross
+MAPE3_cross <- data.frame(MAPE3_cross)
+MAPE3_cross<- mean(MAPE3_cross$MAPE3_cross)
+MAPE3_cross
+
+Random_Forest_wB97XDTZVP <- randomForest(Energy ~ ., data=D3_wB97XDTZVP_agg_select, ntree=300, keep.forest=TRUE,importance=TRUE)
+
+
+################################################################################
+################################################################################
+################################################################################
+###############################                   ##############################
+##########################                            ##########################
+##################                  STEP 4                     #################
+##########################                            ##########################
+###############################                   ##############################
+################################################################################
+################################################################################
+
+# reading dataset          
+D4_B3LYPaugccpVTZ <- read.csv("out_B3LYPaugccpVTZ_group4_random_ev.csv", header=T)
+
+################################################################################
+## data with 13 selected RF features of aggregate variables
+D4_B3LYPaugccpVTZ_agg_select <- D4_B3LYPaugccpVTZ[ , which(names(D4_B3LYPaugccpVTZ) %in% c("N.electron",
+                                                   "M.protonsarray.q0",
+                                                   "M.protonsarray.q2",
+                                                   "M.protonsarray.q4",
+                                                   "M.protonsarray.q5",
+                                                   "M.protonsarray.q7",
+                                                   "M.protonsarray.q1",
+                                                   "M.protonsarray.q8",
+                                                   "M.protonsarray.q9",
+                                                   "M.protonsarray.q10",
+                                                   "ElecDenSurMxq7",
+                                                   "ElecDenSurMxq5",
+                                                   "CentroidW.average.dist.from.atoms.q1",
+                                                   "Nuclei.Distance.Proton.Weighted.Q0",
+                                                   "Energy"))]
+
+################################################################################
+#### MISSING VALUES
+## For NA energies the entry needs to be deleted
+D4_B3LYPaugccpVTZ_agg_select<-D4_B3LYPaugccpVTZ_agg_select[!is.na(D4_B3LYPaugccpVTZ_agg_select$Energy),]
+
+D4_B3LYPaugccpVTZ_agg_select$Energy <- -1*(D4_B3LYPaugccpVTZ_agg_select$Energy)
+
+## adding predicted energy using step 1 model to add another predictor
+resp_data1 <- predict(svmB1B95321G, newdata = D4_B3LYPaugccpVTZ_agg_select)
+D4_B3LYPaugccpVTZ_agg_select$eB1B95321G <- resp_data1
+
+## adding predicted energy using step 2 model to add another predictor
+resp_data2_rfB3LYP_631pss <- predict(Random_Forest_B3LYP_631pss, newdata =D4_B3LYPaugccpVTZ_agg_select)
+D4_B3LYPaugccpVTZ_agg_select$eB3LYP_631pss <- resp_data2_rfB3LYP_631pss
+
+## adding predicted energy using step 3 model to add another predictor
+resp_data3_rfwB97XDTZVP <- predict(Random_Forest_wB97XDTZVP, newdata =D4_B3LYPaugccpVTZ_agg_select)
+D4_B3LYPaugccpVTZ_agg_select$ewB97XDTZVP <- resp_data3_rfwB97XDTZVP
+
+###############################################################################################
+###############################################################################################
+###############################################################################################
+
+folds_step4 <- cut(seq(1,nrow(D4_B3LYPaugccpVTZ_agg_select)),breaks=100,labels=FALSE)
+
+respsfinal_res_opt_4 <- NULL
+
+for(i in 1:100){
+  #Segement your data by fold using the which() function 
+  testIndexes_step4 <- which(folds_step4==i,arr.ind=TRUE)
+  data_Test_step4 <- D4_B3LYPaugccpVTZ_agg_select[testIndexes_step4, ]
+  data_Train_step4 <- D4_B3LYPaugccpVTZ_agg_select[-testIndexes_step4, ]
+  
+  
+  Random_Forest_B3LYPaugccpVTZ <- randomForest(Energy ~ ., data=data_Train_step4, ntree=300, keep.forest=TRUE,importance=TRUE)
+  resp_forrest_test_B3LYPaugccpVTZ <- predict(Random_Forest_B3LYPaugccpVTZ, data_Test_step4, type="response",norm.votes=TRUE, predict.all=FALSE, proximity=FALSE, nodes=FALSE)
+    
+  
+  respsfinal_res_temp <- data.frame(data_Test_step4$Energy,resp_forrest_test_B3LYPaugccpVTZ)
+  
+  respsfinal_res_opt_4 <- rbind(respsfinal_res_opt_4,respsfinal_res_temp)
+  
+}
+
+
+
+plot(respsfinal_res_opt_4$data_Test_step4.Energy,respsfinal_res_opt_4$resp_forrest_test_B3LYPaugccpVTZ)
+
+
+
+tempfitcropped <-lm(respsfinal_res_opt_4$data_Test_step4.Energy ~ respsfinal_res_opt_4$resp_forrest_test_B3LYPaugccpVTZ)
+legend("topleft", paste("R2=", format(summary(tempfitcropped)$adj.r.squared), bty="n"))
+abline(c(0,1),col=c("red"), lwd=2)
+
+
+MAPE4_cross <- abs((respsfinal_res_opt_4$data_Test_step4.Energy-respsfinal_res_opt_4$resp_forrest_test_B3LYPaugccpVTZ)/respsfinal_res_opt_4$data_Test_step4.Energy)
+MAPE4_cross <- 100*MAPE4_cross
+MAPE4_cross <- data.frame(MAPE4_cross)
+MAPE4_cross<- mean(MAPE4_cross$MAPE4_cross)
+MAPE4_cross
+
+
